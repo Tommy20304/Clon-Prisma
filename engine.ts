@@ -1,7 +1,7 @@
 import { normalize } from 'node:path';
 import { Pool } from 'pg';
-import {CondicionalWhere, comprobarErroresAtributos} from './mainFunctions.js'
-import pool from './dbConnection.js';
+import {CondicionalWhere, comprobarErroresAtributos} from './mainFunctions.ts'
+import pool from './dbConnection.ts';
 
 export function createMiniPrismaProxy(arg?: object[]): any {
   // Retornamos un Proxy de nivel superior (ej: intercepta cuando escribes 'client.user')
