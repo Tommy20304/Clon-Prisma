@@ -1,0 +1,187 @@
+{
+    "Users": {
+        "cedula": ["number", "id"],
+        "nombre": ["string", "not null"],
+        "correo": ["string", "unique", "not null"],
+        "password": ["string", "not null"],
+        "num_bank": ["string", "not null"],
+        "num_phone": ["string", "not null"],
+        "rango": ["string"],
+        "url_foto": ["string"],
+        "fecha_creacion": ["string", "not null"],
+        "product": ["Product[]"],
+        "compra_venta": ["Compra_venta"],
+        "reviews": ["Reviews[]"],
+        "review_votes": ["Review_votes[]"],
+        "response_reviews": ["Response_reviews[]"],
+        "comments": ["Comments[]"],
+        "followers": ["Followers[]"]
+    },
+    "Categoria_pry": {
+        "id_cat": ["number", "id", "auto-increment"],
+        "nombre": ["string"],
+        "product": ["Product[]"]
+
+    },
+     "Categoria_sec": {
+        "id_cat": ["number", "id", "auto-increment"],
+        "nombre": ["string"],
+        "product": ["Product[]"]
+
+    },
+     "Categoria_ter": {
+        "id_cat": ["number", "id", "auto-increment"],
+        "nombre": ["string"],
+        "cat_ter_product": ["Cat_ter_product[]"]
+
+    },
+    "Product": {
+        "id_product": ["number", "id", "auto-increment"],
+        "nombre": ["string"],
+        "description": ["string"],
+        "documentacion": ["string"],
+        "price": ["number", "not null"],
+        "pro_rating": ["number"],
+        "total_reviews": ["number"],
+        "otros_metodos": ["boolean"],
+        "fecha_creacion": ["string", "not null"],
+        "id_user": ["number", "not null", {"foreing": "Users"}],
+        "id_cate_pry": ["number", {"foreing": "Categoria_pry"}],
+        "id_cate_sec": ["number", {"foreing": "Categoria_sec"}],
+        "file_url": ["string", "not null"],
+        "product_images": ["Product_images[]"],
+        "product_venta": ["Product_venta[]"],
+        "etiq_prod": ["Etiq_prod[]"],
+        "reviews": ["Reviews[]"],
+        "comments": ["Comments[]"],
+        "users": ["Users"],
+        "categoria_pry": ["Categoria_pry"],
+        "categoria_sec": ["Categoria_sec"]
+
+    },
+
+    "Product_images": {
+        "id_img": ["number", "id", "auto-increment"],
+        "product_id": ["number", "not null", {"foreing": "Product"}],
+        "url_image": ["string", "not null"],
+        "is_main": ["boolean"],
+        "orden_index": ["number"],
+        "product": ["Product"]
+    },
+
+    "Cat_ter_product": {
+        "id_cat": ["number", "id", "auto-increment"],
+        "id_product": ["number", "not null", {"foreing": "Product"}],
+        "id_cat_ter": ["number", "not null", {"foreing": "Categoria_ter"}],
+        "product": ["Product"],
+        "categoria_ter": ["Categoria_ter"]
+    },
+
+    "Factura": {
+        "id_factura": ["number", "id", "auto-increment"],
+        "num_factura": ["number", "unique", "not null"],
+        "datos_factura": ["string", "not null"],
+        "compra_venta": ["Compra_venta"]
+    },
+
+    "Compra_venta": {
+        "id_venta": ["number", "id", "auto-increment"],
+        "id_comprador": ["number", {"foreing": "Users"}],
+        "id_vendedor": ["number", {"foreing": "Users"}],
+        "id_factura": ["number", {"foreing": "Factura"}],
+        "referencia": ["number", "unique", "not null"],
+        "fecha": ["string", "not null"],
+        "product_venta": ["Product_venta[]"],
+        "users": ["Users"],
+        "factura": ["Factura"]
+    },
+
+    "Product_venta": {
+        "id_pv": ["number", "id", "auto-increment"],
+        "product_id": ["number", "not null", {"foreing": "Product"}],
+        "venta_id": ["number", "not null", {"foreing": "Compra_venta"}],
+        "precio_unitario": ["number", "not null"],
+        "product": ["Product"],
+        "compra_venta": ["Compra_venta"],
+        "descarga_venta": ["Descarga_venta"]
+    },
+
+    "Descarga_venta": {
+        "id": ["number", "id", "auto-increment"],
+        "id_product_venta": ["number", "not null", {"foreing": "Product_venta"}],
+        "cantidad": ["number"],
+        "product_venta": ["Product_venta"]
+    },
+
+    "Etiqueta": {
+        "id_etiq": ["number", "id", "auto-increment"],
+        "nombre": ["string", "unique", "not null"],
+        "etiq_prod": ["Etiq_prod[]"]
+    },
+
+    "Etiq_prod": {
+        "id_etiqueta": ["number", "id", "auto-increment"],
+        "product_id": ["number", "not null", {"foreing": "Product"}],
+        "id_etiq": ["number", "not null", {"foreing": "Etiqueta"} ],
+        "product": ["Product"],
+        "etiqueta": ["Etiqueta"]
+    },
+
+    "Reviews": {
+        "id_r": ["number", "id", "auto-increment"],
+        "product_id": ["number", "not null", {"foreing": "Product"}],
+        "user_id": ["number", "not null", {"foreing": "Users"}],
+        "rating": ["number"],
+        "comment": ["string"],
+        "fecha": ["string", "not null"],
+        "eliminado": ["boolean"],
+        "review_votes": ["Review_votes[]"],
+        "response_reviews": ["Response_reviews[]"],
+        "product": ["Product"],
+        "users": ["Users"]
+    },
+
+    "Review_votes": {
+        "id_rv":["number", "id", "auto-increment"],
+        "id_review": ["number", "not null", {"foreing": "Reviews"}],
+        "user_id": ["number", "not null", {"foreing": "Users"}],
+        "util": ["boolean"],
+        "no_util": ["boolean"],
+        "fecha": ["string", "not null"],
+        "eliminado": ["boolean"],
+        "reviews": ["Reviews"],
+        "users": ["Users"]
+    },
+
+    "Response_reviews": {
+        "id_rr": ["number", "id", "auto-increment"],
+        "user_id": ["number", "not null", {"foreing": "Users"}],
+        "id_review": ["number", "not null", {"foreing": "Reviews"}],
+        "comment": ["string"],
+        "fecha": ["string", "not null"],
+        "eliminado": ["boolean"],
+        "users": ["Users"],
+        "reviews": ["Reviews"]
+    },
+
+    "Comments": {
+        "id_comment": ["number", "id", "auto-increment"],
+        "product_id": ["number", "not null", {"foreing": "Product"}],
+        "user_id": ["number", "not null", {"foreing": "Users"}],
+        "padre_id": ["number", "not null", {"foreing": "Comments"}],
+        "user_replies": ["number", "not null", {"foreing": "Users"}],
+        "comment": ["string"],
+        "fecha_creacion": ["string", "not null"],
+        "eliminado": ["boolean"],
+        "product": ["Product"],
+        "users": ["Users"]
+    },
+
+    "Followers": {
+        "id_follower": ["number", "id", "auto-increment"],
+        "user_cuenta": ["number", "not null",{"foreing": "Users"}],
+        "user_seguidor": ["number", "not null", {"foreing": "Users"}],
+        "fecha": ["string", "not null"],
+        "users": ["Users"]
+    }
+}
