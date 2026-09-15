@@ -310,7 +310,7 @@ function generarCliente(){
     const __filename = fileURLToPath(import.meta.url);
     const __dirname = path.dirname(__filename); 
 
-  fs.writeFileSync(path.join(__dirname, 'generated-client-prueba.ts'), code);
+  fs.writeFileSync(path.join(__dirname, 'generated-client.ts'), code);
   console.log(" Client generado exitosamente en ./generated-client.ts");
 }
 

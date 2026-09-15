@@ -1,4 +1,4 @@
-import {MiniPrisma} from "./generated-client-prueba.ts";
+import {MiniPrisma} from "./generated-client.ts";
 
 const prisma = MiniPrisma();
 
