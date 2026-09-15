@@ -215,7 +215,7 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               //*se hace la consulta
               const consulta = await pool.query(sql, params);
               
-              let result = consulta.rows.length ? consulta.rows : null;
+              let result = consulta.rows.length ? consulta.rows : [];
             
               if((args?.include || args?.select) && result){
                 let virtualFields: string | null = null;
@@ -326,7 +326,7 @@ export function createMiniPrismaProxy(arg?: object[]): any {
              
               //se ingresa el registro principal y se obtiene el resultado
               const consulta = await pool.query(sql, values)
-              const result = consulta.rows[0];
+              const result = consulta.rows.length ? consulta.rows[0] : null;
 
               //se comprueba de que exista un objeto {create: [...] } dentro de un campo virtual, si existe se itera sobre el array de objetos y se ejecuta una consulta SQL por cada uno de ellos 
               for(const v of camposVirtuales){
@@ -503,7 +503,7 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                 placeholder += 1;
                 return `${element} = $${placeholder}`;
               })
-
+              let algo = "s";
               //se le agrega el valor del where
               paramsUpdate.push(Object.values(args.where)[0])
 

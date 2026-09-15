@@ -3,9 +3,8 @@
         "cedula": ["number", "id"],
         "nombre": ["string", "not null"],
         "correo": ["string", "unique", "not null"],
-        "password": ["string", "not null"],
-        "num_bank": ["string", "not null"],
         "num_phone": ["string", "not null"],
+        "password": ["string", "not null"],
         "rango": ["string"],
         "url_foto": ["string"],
         "fecha_creacion": ["string", "not null"],
@@ -15,26 +14,61 @@
         "review_votes": ["Review_votes[]"],
         "response_reviews": ["Response_reviews[]"],
         "comments": ["Comments[]"],
-        "followers": ["Followers[]"]
+        "followers": ["Followers[]"],
+        "contactos": ["Contactos"],
+        "pago_movil": ["Pago_movil"]
     },
+
+    "Pago_movil": {
+        "num_cedula": ["number", "id"],
+        "id_user": ["number", "not null", "unique", {"foreing": "Users"}],
+        "num_bank": ["number", "not null"],
+        "num_phone": ["string", "not null"],
+        "users": ["Users"]
+    },
+
+    "Contactos": {
+        "id_contactos": ["string"],
+        "id_user": ["number", "not null", "unique", {"foreing": "Users"}],
+        "url_facebook": ["string", "unique"],
+        "url_x": ["string", "unique"],
+        "url_instagram": ["string", "unique"],
+        "users": ["Users"]
+    },
+
     "Categoria_pry": {
         "id_cat": ["number", "id", "auto-increment"],
-        "nombre": ["string"],
-        "product": ["Product[]"]
+        "nombre": ["string", "unique"],
+        "product": ["Product[]"],
+        "cat_pry_sec_ter": ["Cat_pry_sec_ter[]"]
 
     },
      "Categoria_sec": {
         "id_cat": ["number", "id", "auto-increment"],
-        "nombre": ["string"],
-        "product": ["Product[]"]
+        "nombre": ["string", "unique"],
+        "product": ["Product[]"],
+        "cat_pry_sec_ter": ["Cat_pry_sec_ter[]"]
 
     },
-     "Categoria_ter": {
+
+    "Categoria_ter": {
         "id_cat": ["number", "id", "auto-increment"],
-        "nombre": ["string"],
-        "cat_ter_product": ["Cat_ter_product[]"]
+        "nombre": ["string", "unique"],
+        "cat_ter_product": ["Cat_ter_product[]"],
+        "cat_pry_sec_ter": ["Cat_pry_sec_ter[]"]
 
     },
+
+    "Cat_pry_sec_ter": {
+        "id_cat_ps": ["number", "id", "auto-increment"],
+        "id_cat_pry": ["number", "not null", {"foreing": "Categoria_pry"}],
+        "id_cat_sec": ["number", "not null", {"foreing": "Categoria_sec"}],
+        "id_cat_ter": ["number", "not null", {"foreing": "Categoria_ter"}],
+        "categoria_pry": ["Categoria_pry"],
+        "categoria_sec": ["Categoria_sec"],
+        "categoria_ter": ["Categoria_ter"]
+    },
+
     "Product": {
         "id_product": ["number", "id", "auto-increment"],
         "nombre": ["string"],
@@ -42,7 +76,8 @@
         "documentacion": ["string"],
         "price": ["number", "not null"],
         "pro_rating": ["number"],
-        "total_reviews": ["number"],
+        "size": ["string"],
+        "actualizado": ["boolean"],
         "otros_metodos": ["boolean"],
         "fecha_creacion": ["string", "not null"],
         "id_user": ["number", "not null", {"foreing": "Users"}],
@@ -56,7 +91,8 @@
         "comments": ["Comments[]"],
         "users": ["Users"],
         "categoria_pry": ["Categoria_pry"],
-        "categoria_sec": ["Categoria_sec"]
+        "categoria_sec": ["Categoria_sec"],
+        "cat_ter_product": ["Cat_ter_product[]"]
 
     },
 
@@ -90,6 +126,7 @@
         "id_vendedor": ["number", {"foreing": "Users"}],
         "id_factura": ["number", {"foreing": "Factura"}],
         "referencia": ["number", "unique", "not null"],
+        "monto": ["number", "not null"],
         "fecha": ["string", "not null"],
         "product_venta": ["Product_venta[]"],
         "users": ["Users"],
@@ -168,9 +205,9 @@
         "id_comment": ["number", "id", "auto-increment"],
         "product_id": ["number", "not null", {"foreing": "Product"}],
         "user_id": ["number", "not null", {"foreing": "Users"}],
-        "padre_id": ["number", "not null", {"foreing": "Comments"}],
-        "user_replies": ["number", "not null", {"foreing": "Users"}],
-        "comment": ["string"],
+        "padre_id": ["number",  {"foreing": "Comments"}],
+        "user_replies": ["number", {"foreing": "Users"}],
+        "comment": ["string", "not null"],
         "fecha_creacion": ["string", "not null"],
         "eliminado": ["boolean"],
         "product": ["Product"],
