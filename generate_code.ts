@@ -192,7 +192,11 @@ type WhereString = AlMenosUno<{
   notIn?: string[];
   not?: string | WhereString; //que no sea igual a ese texto
   modeInsensitive?: boolean; // Busca "gmail", "Gmail", "GMAIL", etc. Le da igual las minisculas/mayúsculas.
-}>
+  lt?: string; // Menor que (creada explicitamente para el rango fechas)
+  lte?: string; // Menor o igual que (creada explicitamente para el rango fechas)
+  gt?: string; // Mayor que (creada explicitamente para el rango fechas)
+  gte?: string; // Mayor o igual que (creada explicitamente para el rango fechas)
+  }>
 
 //tipado para condicionales de relaciones del where
 type WhereRelation<T> = AlMenosUno<{

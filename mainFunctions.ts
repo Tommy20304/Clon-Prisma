@@ -25,7 +25,11 @@ const WhereString = {
   notIn: (arg: {v1: string, v2: string, insensitive?: boolean}) => 
     (arg.insensitive) ? `NOT (LOWER(${arg.v1}) = ANY($${arg.v2}))` : `NOT (${arg.v1} = ANY($${arg.v2}::text[]))`,
   not: (arg: {v1: string, v2: string, insensitive?: boolean}) => 
-    (arg.insensitive) ? `LOWER(${arg.v1}) != LOWER('${arg.v2}')` : `${arg.v1} != '${arg.v2}'`
+    (arg.insensitive) ? `LOWER(${arg.v1}) != LOWER('${arg.v2}')` : `${arg.v1} != '${arg.v2}'`,
+  lt: (arg: {v1: string, v2: number}) => `${arg.v1} < '$${arg.v2}'`,
+  gt: (arg: {v1: string, v2: number}) => `${arg.v1} > '$${arg.v2}''`,
+  lte: (arg: {v1: string, v2: number}) => `${arg.v1} <= '$${arg.v2}'`,
+  gte: (arg: {v1: string, v2: number}) => `${arg.v1} >= '$${arg.v2}''`
 };
 
 //objeto que entrega una funcion que permite automatizar la clausula de un where, dependiendo que el valor del (campo: valor) sea un objeto, un valor primitivo o un null
