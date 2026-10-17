@@ -25,13 +25,13 @@ export function createMiniPrismaProxy(arg?: object[]): any {
 
               //si hay un select, se filtran los campos virtuales y se colocan en el select
               if(args?.select){
-                const camposTablaPrincipal = arg?.find((t: any) => t.nameTabla === table);
+                const camposTablaPrincipal:any = arg?.find((t: any) => t.nameTabla === table);
                 selectedFields = Object.keys(args.select).filter(k => camposTablaPrincipal[k] != 'virtual').join(', ');
 
               }
 
               if(args?.omit){
-                const camposTablaPrincipal = arg?.find((t: any) => t.nameTabla === table);
+                const camposTablaPrincipal:any = arg?.find((t: any) => t.nameTabla === table);
                 const camposReales = Object.keys(camposTablaPrincipal).filter(k => camposTablaPrincipal[k] != 'virtual' && k != 'nameTabla');
                 selectedFields = camposReales.filter(k => !args.omit[k]).join(', ');
               }

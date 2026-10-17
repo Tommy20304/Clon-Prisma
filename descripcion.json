@@ -1,216 +1,62 @@
 {
     "Users": {
-        "cedula": ["number", "id"],
+        "id_user": ["number", "id", "auto-increment"],
         "nombre": ["string", "not null"],
-        "correo": ["string", "unique", "not null"],
+        "email": ["string", "unique", "not null"],
         "num_phone": ["string", "not null"],
         "password": ["string", "not null"],
-        "rango": ["string"],
         "url_foto": ["string"],
         "fecha_creacion": ["string", "not null"],
-        "product": ["Product[]"],
-        "compra_venta": ["Compra_venta"],
-        "reviews": ["Reviews[]"],
-        "review_votes": ["Review_votes[]"],
-        "response_reviews": ["Response_reviews[]"],
-        "comments": ["Comments[]"],
-        "followers": ["Followers[]"],
-        "contactos": ["Contactos"],
-        "pago_movil": ["Pago_movil"]
+        "blogs": ["Blogs[]"],
+        "blog_views": ["Blog_views[]"],
+        "blog_comments": ["Blog_comments[]"],
+        "followers": ["Followers[]"]
     },
 
-    "Pago_movil": {
-        "num_cedula": ["number", "id"],
-        "id_user": ["number", "not null", "unique", {"foreing": "Users"}],
-        "num_bank": ["number", "not null"],
-        "num_phone": ["string", "not null"],
-        "users": ["Users"]
+    "Tags": {
+        "id_tag": ["number", "id", "auto-increment"],
+        "nombre": ["string", "not null"],
+        "fecha_creacion": ["string", "not null"]
     },
 
-    "Contactos": {
-        "id_contactos": ["string"],
-        "id_user": ["number", "not null", "unique", {"foreing": "Users"}],
-        "url_facebook": ["string", "unique"],
-        "url_x": ["string", "unique"],
-        "url_instagram": ["string", "unique"],
-        "users": ["Users"]
-    },
-
-    "Categoria_pry": {
-        "id_cat": ["number", "id", "auto-increment"],
-        "nombre": ["string", "unique"],
-        "product": ["Product[]"],
-        "cat_pry_sec_ter": ["Cat_pry_sec_ter[]"]
-
-    },
-     "Categoria_sec": {
-        "id_cat": ["number", "id", "auto-increment"],
-        "nombre": ["string", "unique"],
-        "product": ["Product[]"],
-        "cat_pry_sec_ter": ["Cat_pry_sec_ter[]"]
-
-    },
-
-    "Categoria_ter": {
-        "id_cat": ["number", "id", "auto-increment"],
-        "nombre": ["string", "unique"],
-        "cat_ter_product": ["Cat_ter_product[]"],
-        "cat_pry_sec_ter": ["Cat_pry_sec_ter[]"]
-
-    },
-
-    "Cat_pry_sec_ter": {
-        "id_cat_ps": ["number", "id", "auto-increment"],
-        "id_cat_pry": ["number", "not null", {"foreing": "Categoria_pry"}],
-        "id_cat_sec": ["number", "not null", {"foreing": "Categoria_sec"}],
-        "id_cat_ter": ["number", "not null", {"foreing": "Categoria_ter"}],
-        "categoria_pry": ["Categoria_pry"],
-        "categoria_sec": ["Categoria_sec"],
-        "categoria_ter": ["Categoria_ter"]
-    },
-
-    "Product": {
-        "id_product": ["number", "id", "auto-increment"],
-        "nombre": ["string"],
-        "description": ["string"],
-        "documentacion": ["string"],
-        "price": ["number", "not null"],
-        "pro_rating": ["number"],
-        "size": ["string"],
-        "actualizado": ["boolean"],
-        "otros_metodos": ["boolean"],
+    "Blogs": {
+        "id_Blog": ["number", "id", "auto-increment"],
+        "titulo": ["string", "not null"],
+        "img_main": ["string", "unique", "not null"],
         "fecha_creacion": ["string", "not null"],
         "id_user": ["number", "not null", {"foreing": "Users"}],
-        "id_cate_pry": ["number", {"foreing": "Categoria_pry"}],
-        "id_cate_sec": ["number", {"foreing": "Categoria_sec"}],
-        "file_url": ["string", "not null"],
-        "product_images": ["Product_images[]"],
-        "product_venta": ["Product_venta[]"],
-        "etiq_prod": ["Etiq_prod[]"],
-        "reviews": ["Reviews[]"],
-        "comments": ["Comments[]"],
-        "users": ["Users"],
-        "categoria_pry": ["Categoria_pry"],
-        "categoria_sec": ["Categoria_sec"],
-        "cat_ter_product": ["Cat_ter_product[]"]
-
-    },
-
-    "Product_images": {
-        "id_img": ["number", "id", "auto-increment"],
-        "product_id": ["number", "not null", {"foreing": "Product"}],
-        "url_image": ["string", "not null"],
-        "is_main": ["boolean"],
-        "orden_index": ["number"],
-        "product": ["Product"]
-    },
-
-    "Cat_ter_product": {
-        "id_cat": ["number", "id", "auto-increment"],
-        "id_product": ["number", "not null", {"foreing": "Product"}],
-        "id_cat_ter": ["number", "not null", {"foreing": "Categoria_ter"}],
-        "product": ["Product"],
-        "categoria_ter": ["Categoria_ter"]
-    },
-
-    "Factura": {
-        "id_factura": ["number", "id", "auto-increment"],
-        "num_factura": ["number", "unique", "not null"],
-        "datos_factura": ["string", "not null"],
-        "compra_venta": ["Compra_venta"]
-    },
-
-    "Compra_venta": {
-        "id_venta": ["number", "id", "auto-increment"],
-        "id_comprador": ["number", {"foreing": "Users"}],
-        "id_vendedor": ["number", {"foreing": "Users"}],
-        "id_factura": ["number", {"foreing": "Factura"}],
-        "referencia": ["number", "unique", "not null"],
-        "monto": ["number", "not null"],
-        "fecha": ["string", "not null"],
-        "product_venta": ["Product_venta[]"],
-        "users": ["Users"],
-        "factura": ["Factura"]
-    },
-
-    "Product_venta": {
-        "id_pv": ["number", "id", "auto-increment"],
-        "product_id": ["number", "not null", {"foreing": "Product"}],
-        "venta_id": ["number", "not null", {"foreing": "Compra_venta"}],
-        "precio_unitario": ["number", "not null"],
-        "product": ["Product"],
-        "compra_venta": ["Compra_venta"],
-        "descarga_venta": ["Descarga_venta"]
-    },
-
-    "Descarga_venta": {
-        "id": ["number", "id", "auto-increment"],
-        "id_product_venta": ["number", "not null", {"foreing": "Product_venta"}],
-        "cantidad": ["number"],
-        "product_venta": ["Product_venta"]
-    },
-
-    "Etiqueta": {
-        "id_etiq": ["number", "id", "auto-increment"],
-        "nombre": ["string", "unique", "not null"],
-        "etiq_prod": ["Etiq_prod[]"]
-    },
-
-    "Etiq_prod": {
-        "id_etiqueta": ["number", "id", "auto-increment"],
-        "product_id": ["number", "not null", {"foreing": "Product"}],
-        "id_etiq": ["number", "not null", {"foreing": "Etiqueta"} ],
-        "product": ["Product"],
-        "etiqueta": ["Etiqueta"]
-    },
-
-    "Reviews": {
-        "id_r": ["number", "id", "auto-increment"],
-        "product_id": ["number", "not null", {"foreing": "Product"}],
-        "user_id": ["number", "not null", {"foreing": "Users"}],
-        "rating": ["number"],
-        "comment": ["string"],
-        "fecha": ["string", "not null"],
+        "content": ["string", "not null"],
+        "view_count": ["number"],
+        "comment_count": ["number"],
+        "bloqueado": ["boolean"],
         "eliminado": ["boolean"],
-        "review_votes": ["Review_votes[]"],
-        "response_reviews": ["Response_reviews[]"],
-        "product": ["Product"],
+        "actualizado": ["boolean"],
+        "id_tag": ["number", "not null", {"foreing": "Tags"}],
+        "blog_views": ["Blog_views[]"],
+        "blog_comments": ["Blog_comments[]"],
         "users": ["Users"]
     },
 
-    "Review_votes": {
-        "id_rv":["number", "id", "auto-increment"],
-        "id_review": ["number", "not null", {"foreing": "Reviews"}],
-        "user_id": ["number", "not null", {"foreing": "Users"}],
-        "util": ["boolean"],
-        "no_util": ["boolean"],
-        "fecha": ["string", "not null"],
-        "eliminado": ["boolean"],
-        "reviews": ["Reviews"],
-        "users": ["Users"]
-    },
-
-    "Response_reviews": {
-        "id_rr": ["number", "id", "auto-increment"],
-        "user_id": ["number", "not null", {"foreing": "Users"}],
-        "id_review": ["number", "not null", {"foreing": "Reviews"}],
-        "comment": ["string"],
-        "fecha": ["string", "not null"],
-        "eliminado": ["boolean"],
+    "Blog_views": {
+        "id_blog_view": ["number", "id", "auto-increment"],
+        "id_user": ["number", "not null", {"foreing": "Users"}],
+        "id_blog": ["number", "not null", {"foreing": "Blogs"}],
+        "fecha_creacion": ["string", "not null"],
         "users": ["Users"],
-        "reviews": ["Reviews"]
+        "blog": ["Blogs"]
+
     },
 
-    "Comments": {
+    "Blog_comments": {
         "id_comment": ["number", "id", "auto-increment"],
-        "product_id": ["number", "not null", {"foreing": "Product"}],
+        "id_blog": ["number", "not null", {"foreing": "Blogs"}],
         "user_id": ["number", "not null", {"foreing": "Users"}],
-        "padre_id": ["number",  {"foreing": "Comments"}],
+        "padre_id": ["number",  {"foreing": "Blog_comments"}],
         "user_replies": ["number", {"foreing": "Users"}],
         "comment": ["string", "not null"],
         "fecha_creacion": ["string", "not null"],
         "eliminado": ["boolean"],
-        "product": ["Product"],
+        "blogs": ["Blogs"],
         "users": ["Users"]
     },
 
