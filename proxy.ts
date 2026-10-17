@@ -2,7 +2,7 @@ import {MiniPrisma} from "./generated-client.ts";
 
 const prisma = MiniPrisma();
 
-/*
+/*  
 Ejemplo de uso del ORM
 async function findUniqueTest(){
   const usuario = await prisma.users.findUnique({

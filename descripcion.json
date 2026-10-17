@@ -28,7 +28,7 @@
     },
 
     "Contactos": {
-        "id_contactos": ["string"],
+        "id_contactos": ["string", "id", "auto-increment"],
         "id_user": ["number", "not null", "unique", {"foreing": "Users"}],
         "url_facebook": ["string", "unique"],
         "url_x": ["string", "unique"],
@@ -219,6 +219,7 @@
         "user_cuenta": ["number", "not null",{"foreing": "Users"}],
         "user_seguidor": ["number", "not null", {"foreing": "Users"}],
         "fecha": ["string", "not null"],
+        "desabilitado": ["boolean"],
         "users": ["Users"]
     }
 }

@@ -147,6 +147,11 @@ type AlMenosUno<T> = {
 
 type OrdenBy<T> = {
   [K in keyof T]?: 'asc' | 'desc'
+};
+
+//tipo generativo para los increment y decrement de los update
+type TransformNumbers<T> = {
+  [K in keyof T]: T[K] extends number ? ({ increment: number } | { decrement: number } | number) : T[K];
 };\n\n`
 }
 
@@ -286,13 +291,18 @@ function parte5(){
   createMany: (args: { data: ${todosSonOpcionales(modelName) ? 'AlMenosUno<':''}${returnVirtualValues(modelName).length ? `Omit<Create${modelName}, ${returnVirtualValues(modelName).map(k=>`'${k}'`).join(' | ')}>${todosSonOpcionales(modelName) ? '>':''}[]`: `Create${modelName}${todosSonOpcionales(modelName) ? '>':''}[]`}, skipDuplicates?: boolean}) => Promise<{ count: number }>
   delete: (args: { where: AlMenosUno<WhereUnique${modelName}>, returnValue?: boolean}) => Promise<${modelName} | null> 
   deleteMany: (args?: { where?: WhereMany<${modelName}>}) => Promise<{ count: number } | null>
-  update: (args: { where: AlMenosUno<WhereUnique${modelName}>, data: Partial<${returnVirtualValues(modelName).length ? `Omit<${modelName}, ${returnVirtualValues(modelName).map(k=>`'${k}'`).join(' | ')}>`:`${modelName}`}> }) => Promise<${modelName} | null> 
-  updateMany: (args: { where?: WhereMany<${modelName}>, data: AlMenosUno<${returnVirtualValues(modelName).length ? `Omit<${modelName}, ${returnVirtualValues(modelName).map(k=>`'${k}'`).join(' | ')}>>`:`${modelName}>`} }) => Promise<{ count: number } | null> `
+  update: (args: { where: AlMenosUno<WhereUnique${modelName}>, data: Partial<${returnVirtualValues(modelName).length ? `Omit<TransformNumbers<${modelName}>, ${returnVirtualValues(modelName).map(k=>`'${k}'`).join(' | ')}>`:`TransformNumbers<${modelName}>`}> }) => Promise<${modelName} | null> 
+  updateMany: (args: { where?: WhereMany<${modelName}>, data: AlMenosUno<${returnVirtualValues(modelName).length ? `Omit<TransformNumbers<${modelName}>, ${returnVirtualValues(modelName).map(k=>`'${k}'`).join(' | ')}>>`:`TransformNumbers<${modelName}>>`} }) => Promise<{ count: number } | null>\n`
   
   code += `};\n\n`; 
   }
-  code += '\n}\n\n'
+  /*se coloca el modelo para las transacciones*/
+  code += `transaction: <T extends readonly (() => Promise<any>)[]>(
+  args: [...T]) => Promise<{ [K in keyof T]: Awaited<ReturnType<T[K]>> }>`; 
+
+  code += '\n\n}\n'
 }
+
 
 function generarCliente(){
 
@@ -301,6 +311,8 @@ function generarCliente(){
   parte3();
   parte4();
   parte5();
+
+  /*se hace una copia del MiniPrisma pero sin el transaction*/
 
   // Exportar la clase constructora que usará Proxies dinámicos
   code += `import { createMiniPrismaProxy } from './engine.ts';\n`;

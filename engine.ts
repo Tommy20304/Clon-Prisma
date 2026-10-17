@@ -5,8 +5,28 @@ import pool from './dbConnection.ts';
 
 export function createMiniPrismaProxy(arg?: object[]): any {
   // Retornamos un Proxy de nivel superior (ej: intercepta cuando escribes 'client.user')
-  return new Proxy({}, {
+  return new Proxy({}, { 
     get(target, modelName: string) {
+
+      //para las transacciones
+      if(modelName === 'transaction'){
+        return async function (args: any){
+          try{
+            await pool.query('BEGIN');
+            const results = [];
+            // Ejecutamos cada operación de manera secuencial pasándole el cliente
+            for (const op of args) {
+              const result = await op();
+              results.push(result);
+            }
+            await pool.query('COMMIT');
+            return results as { [K in keyof T]: Awaited<ReturnType<T[K]>> };
+          }catch(error){
+            await pool.query('ROLLBACK');
+            throw error;
+          }
+        }     
+      }
       
       // Retornamos un segundo Proxy para los métodos (ej: intercepta 'findMany' o 'create')
       return new Proxy({}, {
@@ -495,15 +515,25 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               //se saca los campos y los valores del data del update
               Object.keys(args.data).forEach(k => {
                 camposUpdate.push(k);
-                paramsUpdate.push(args.data[k]);
+
+                //para los objetos {increment:} y {decrement:}
+                if(typeof args.data[k] == 'object')
+                  paramsUpdate.push(args.data[k][Object.keys(args.data[k])[0]])
+                else
+                  paramsUpdate.push(args.data[k]);
               });
 
               //se crea el set
               const setUpdate = camposUpdate.map(element => {
+                //se determina si hay un increment o decrement
+                let operation;
+                if(typeof args.data[element] == 'object')
+                  operation = args.data[element].increment ? `${element} +` : `${element} -`
+
                 placeholder += 1;
-                return `${element} = $${placeholder}`;
+                return `${element} = ${operation && operation} $${placeholder}`;
               })
-              let algo = "s";
+      
               //se le agrega el valor del where
               paramsUpdate.push(Object.values(args.where)[0])
 
@@ -527,8 +557,17 @@ export function createMiniPrismaProxy(arg?: object[]): any {
 
               Object.keys(args.data).forEach(k => {
                 placeholder += 1;
-                params.push(args.data[k]);
-                stringSet.push(`${k} = $${placeholder}`);
+
+                //se determina si hay un increment o decrement
+                let operation;
+                if(typeof args.data[k] == 'object'){
+                  operation = args.data[k].increment ? `${k} +` : `${k} -`;
+                  params.push(args.data[k][Object.keys(args.data[k])[0]])
+                }
+                else
+                  params.push(args.data[k]);
+
+                stringSet.push(`${k} = ${operation && operation} $${placeholder}`);
               })
 
               let sql:string = `UPDATE ${table} SET ${stringSet.join(', ')}`; //la consulta se tien que cambiar para que devuelva el numero de registros actualizados
@@ -542,6 +581,26 @@ export function createMiniPrismaProxy(arg?: object[]): any {
 
               const consulta = await pool.query(sql, params);
               return {count: consulta.rowCount}
+            }
+
+            //para la transicciones
+            if(methodName === 'transiction'){
+              try{
+                await pool.query('BEGIN');
+
+                const results = [];
+                // Ejecutamos cada operación de manera secuencial pasándole el cliente
+                for (const op of args) {
+                  const result = await op();
+                  results.push(result);
+                }
+
+                await pool.query('COMMIT');
+                return results as { [K in keyof T]: Awaited<ReturnType<T[K]>> };
+              }catch(error){
+                await pool.query('ROLLBACK');
+                throw error;
+              }
             }
 
             else{
