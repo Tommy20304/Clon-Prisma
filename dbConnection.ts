@@ -1,4 +1,4 @@
-//se archivo donde se configura la conexion a la base de datos
+// archivo donde se configura la conexion a la base de datos
 
 import pg from 'pg';
 import path from 'path';

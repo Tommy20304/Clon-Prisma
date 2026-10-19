@@ -5,8 +5,28 @@ import pool from './dbConnection.ts';
 
 export function createMiniPrismaProxy(arg?: object[]): any {
   // Retornamos un Proxy de nivel superior (ej: intercepta cuando escribes 'client.user')
-  return new Proxy({}, {
+  return new Proxy({}, { 
     get(target, modelName: string) {
+
+      //para las transacciones
+      if(modelName === 'transaction'){
+        return async function (args: any){
+          try{
+            await pool.query('BEGIN');
+            const results = [];
+            // Ejecutamos cada operación de manera secuencial pasándole el cliente
+            for (const op of args) {
+              const result = await op();
+              results.push(result);
+            }
+            await pool.query('COMMIT');
+            return results as { [K in keyof T]: Awaited<ReturnType<T[K]>> };
+          }catch(error){
+            await pool.query('ROLLBACK');
+            throw error;
+          }
+        }     
+      }
       
       // Retornamos un segundo Proxy para los métodos (ej: intercepta 'findMany' o 'create')
       return new Proxy({}, {
@@ -218,10 +238,6 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               let result = consulta.rows.length ? consulta.rows : [];
             
               if((args?.include || args?.select) && result){
-                let virtualFields: string | null = null;
-                let whereClauses: string | null = null;
-                let paramsSubConsulta: any[] = [];
-                let identificadores: any[] = [];
 
                 const argsIncludeOrSelect = args.include ? args.include : args.select;
 
@@ -231,8 +247,14 @@ export function createMiniPrismaProxy(arg?: object[]): any {
  
                 //se determina si se itera los valores del include o los campos virtuales del select
                 const iterar = args.include ? Object.keys(args.include) : camposVirtuales;
-
+                
                 for(const virtual of iterar){
+
+                  //se definen las variables fundamentales para la ejecucion
+                  let virtualFields: string | null = null;
+                  let whereClauses: string | null = null;
+                  let paramsSubConsulta: any[] = [];
+                  let identificadores: any[] = [];
 
                   //arreglar esto porque se tiene que sacar el id de la principal para la subconsulta, pero no es seguro porque puede ser un foreing
                   const tablaPrincipal = arg?.find((t: any) => t.nameTabla === table);
@@ -288,20 +310,19 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                   }
 
                   //se agrega el nuevo atributo a todos los registros resultantes de la consulta principal
-
                   for(const [index, k] of result.entries()){
 
-                    let consulta = `SELECT ${virtualFields ? virtualFields : '*'} FROM ${virtual} LEFT JOIN ${table} ON ${virtual}.${foreingOrIdVirtual} = ${table}.${foreinOrIdPrincipal}
+                    let consulta = `SELECT ${virtualFields} FROM ${virtual} LEFT JOIN ${table} ON ${virtual}.${foreingOrIdVirtual} = ${table}.${foreinOrIdPrincipal}
                     WHERE ${whereClauses ? whereClauses + ' AND ' : ''} ${table}.${idPrincipal} = $${paramsSubConsulta.length + 1} `
-
+                    
                     const consult = await pool.query(consulta, [...paramsSubConsulta, identificadores[index]]); 
+                    
                     const resultConsult = consult.rows;
  
                     k[virtual] = resultConsult
                     result[index] = k; //se actualiza el registro del array result con el nuevo atributo  
 
-                  };
-                  
+                  };        
                 }
               }
  
@@ -495,15 +516,25 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               //se saca los campos y los valores del data del update
               Object.keys(args.data).forEach(k => {
                 camposUpdate.push(k);
-                paramsUpdate.push(args.data[k]);
+
+                //para los objetos {increment:} y {decrement:}
+                if(typeof args.data[k] == 'object')
+                  paramsUpdate.push(args.data[k][Object.keys(args.data[k])[0]])
+                else
+                  paramsUpdate.push(args.data[k]);
               });
 
               //se crea el set
               const setUpdate = camposUpdate.map(element => {
+                //se determina si hay un increment o decrement
+                let operation;
+                if(typeof args.data[element] == 'object')
+                  operation = args.data[element].increment ? `${element} +` : `${element} -`
+
                 placeholder += 1;
-                return `${element} = $${placeholder}`;
+                return `${element} = ${operation && operation} $${placeholder}`;
               })
-              let algo = "s";
+      
               //se le agrega el valor del where
               paramsUpdate.push(Object.values(args.where)[0])
 
@@ -527,8 +558,17 @@ export function createMiniPrismaProxy(arg?: object[]): any {
 
               Object.keys(args.data).forEach(k => {
                 placeholder += 1;
-                params.push(args.data[k]);
-                stringSet.push(`${k} = $${placeholder}`);
+
+                //se determina si hay un increment o decrement
+                let operation;
+                if(typeof args.data[k] == 'object'){
+                  operation = args.data[k].increment ? `${k} +` : `${k} -`;
+                  params.push(args.data[k][Object.keys(args.data[k])[0]])
+                }
+                else
+                  params.push(args.data[k]);
+
+                stringSet.push(`${k} = ${operation && operation} $${placeholder}`);
               })
 
               let sql:string = `UPDATE ${table} SET ${stringSet.join(', ')}`; //la consulta se tien que cambiar para que devuelva el numero de registros actualizados
@@ -542,6 +582,26 @@ export function createMiniPrismaProxy(arg?: object[]): any {
 
               const consulta = await pool.query(sql, params);
               return {count: consulta.rowCount}
+            }
+
+            //para la transicciones
+            if(methodName === 'transiction'){
+              try{
+                await pool.query('BEGIN');
+
+                const results = [];
+                // Ejecutamos cada operación de manera secuencial pasándole el cliente
+                for (const op of args) {
+                  const result = await op();
+                  results.push(result);
+                }
+
+                await pool.query('COMMIT');
+                return results as { [K in keyof T]: Awaited<ReturnType<T[K]>> };
+              }catch(error){
+                await pool.query('ROLLBACK');
+                throw error;
+              }
             }
 
             else{
