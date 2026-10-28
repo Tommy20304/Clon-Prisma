@@ -532,7 +532,7 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                   operation = args.data[element].increment ? `${element} +` : `${element} -`
 
                 placeholder += 1;
-                return `${element} = ${operation && operation} $${placeholder}`;
+                return `${element} = ${operation ? operation : ''} $${placeholder}`;
               })
       
               //se le agrega el valor del where
@@ -541,7 +541,7 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               const sql = `UPDATE ${table} SET ${setUpdate.join(', ')} WHERE ${campoWhereUpdate} = $${placeholder + 1} RETURNING *`
 
               const consulta = await pool.query(sql, paramsUpdate);
-
+              
               if(!consulta.rowCount)
                 throw new Error("El elemento no existe");
 
@@ -568,7 +568,7 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                 else
                   params.push(args.data[k]);
 
-                stringSet.push(`${k} = ${operation && operation} $${placeholder}`);
+                stringSet.push(`${k} = ${operation ? operation : ''} $${placeholder}`);
               })
 
               let sql:string = `UPDATE ${table} SET ${stringSet.join(', ')}`; //la consulta se tien que cambiar para que devuelva el numero de registros actualizados

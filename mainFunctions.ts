@@ -32,6 +32,103 @@ const WhereString = {
   gte: (arg: {v1: string, v2: number}) => `${arg.v1} >= '$${arg.v2}''`
 };
 
+const OperadoresRelacionales = (key:any, arg:any, camposTablaPrincipal, numClause, opeSeparador, conditionsRelation) => {
+  
+  //** 
+  //key: el campo virtual
+  //arg: el objeto del argumento del CondicionalWhere 
+  //camposTablaPrincipal:un objeto con los campos de la tabla principal de la operacion 
+  //numClause: el numero de clausulas que se usa como base para poder ingrementarlo dentro de la funcion
+  //opeSeparador: el operador con el que se separa los resultados de cada operador relacional
+  //conditionsRelation: el objeto donde estan las condiciones con los operadores relacionales 
+  //*/
+  
+  // Para campos virtuales, asumimos que el where es un objeto con condiciones para la tabla relacionada
+  const virtualTable = key;
+  const virtualKeys = Object.keys(conditionsRelation);
+
+  interface returnObject {numClause:number, params: any[], clause: any}
+  const returnObject: returnObject = {numClause: numClause, params: [], clause: []};
+
+  virtualKeys.forEach((vk, vIndex) => {
+    const valuesOperador = conditionsRelation[vk];
+
+    //se utilizan para las consultas que necesitan relacionar los ids con las claves foraneas, determinando primero cual tiene la clave primaria o el id
+    const idPrincipal = Object.keys(camposTablaPrincipal).find(k => camposTablaPrincipal[k] === `id`);
+    const foreingPrincipal = Object.keys(camposTablaPrincipal).find(k => camposTablaPrincipal[k] === `foreing:${virtualTable}`);
+    const idOrForeingPrincipal = foreingPrincipal ? foreingPrincipal : idPrincipal;
+    
+    const tablaVirtual = arg.camposTable.find((t: any) => t.nameTabla === virtualTable);
+    const foreignVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `foreing:${arg.table}`);
+    const idVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `id`);
+    const idOrForeingVirtual = foreignVirtual ? foreignVirtual : idVirtual
+
+    if(vk === 'some'){
+      // Si el operador es 'some', significa que queremos que exista al menos un registro relacionado que cumpla la condición
+      const string = Object.keys(valuesOperador).map(op => { 
+        
+        const resultObject = WhereMetodos.cond({where: valuesOperador[op], key: op, numClause: numClause, ope: 'OR', nomRelationTable: virtualTable});
+        returnObject.numClause = resultObject.numClause;
+        resultObject.params.forEach((k) => returnObject.params.push(k)); //todos los parametros recogidos en el whereMetodos, se colocan en el params
+        return resultObject.clause;
+      }).join(' AND ');
+      returnObject.clause.push(`EXISTS (SELECT 1 FROM ${virtualTable} WHERE ${virtualTable}.${idOrForeingVirtual} = ${arg.table}.${idOrForeingPrincipal} AND ${string})`)
+    }
+    if(vk === 'every'){
+     
+      // Si el operador es 'every', significa que queremos que todos los registros relacionados cumplan la condición
+      const string = Object.keys(valuesOperador).map(op => {
+
+         const resultObject = WhereMetodos.cond({where:  valuesOperador[op], key: op, numClause: numClause, ope: 'AND', nomRelationTable: virtualTable});
+        returnObject.numClause = resultObject.numClause;
+        resultObject.params.forEach((k) => returnObject.params.push(k));
+        return resultObject.clause;
+      }).join(' AND ');
+
+      returnObject.clause.push(`NOT EXISTS (SELECT 1 FROM ${virtualTable} WHERE ${virtualTable}.${idOrForeingVirtual} = ${arg.table}.${idOrForeingPrincipal} AND NOT (${string}))`)
+    } 
+    if(vk === 'none'){
+      // Si el operador es 'none', significa que queremos que ningún registro relacionado cumpla la condición
+      const string = Object.keys(valuesOperador).map(op => {
+
+         const resultObject = WhereMetodos.cond({where: valuesOperador[op], key: op, numClause: numClause, ope: 'AND', nomRelationTable: virtualTable});
+        returnObject.numClause = resultObject.numClause;
+        resultObject.params.forEach((k) => returnObject.params.push(k));
+        return resultObject.clause;
+      }).join(' AND ');
+
+      returnObject.clause.push(`NOT EXISTS (SELECT 1 FROM ${virtualTable} WHERE ${virtualTable}.${idOrForeingVirtual} = ${arg.table}.${idOrForeingPrincipal} AND ${string})`)
+    }
+    
+    if(vk === 'is'){
+      const string = Object.keys(valuesOperador).map(op => {
+
+         const resultObject = WhereMetodos.cond({where:  valuesOperador[op], key: op, numClause: numClause, ope: 'AND', nomRelationTable: virtualTable});
+        returnObject.numClause = resultObject.numClause;
+        resultObject.params.forEach((k) => returnObject.params.push(k));
+        return resultObject.clause;
+      }).join(' AND ');
+
+      returnObject.clause.push(`EXISTS (SELECT 1 FROM ${virtualTable} WHERE ${virtualTable}.${idOrForeingVirtual} = ${arg.table}.${idOrForeingPrincipal} AND ${string})`)
+    }
+    if(vk === 'isNot'){
+
+      const string = Object.keys(valuesOperador).map(op => {
+         const resultObject = WhereMetodos.cond({where:  valuesOperador[op], key: op, numClause: numClause, ope: 'AND', nomRelationTable: virtualTable});
+        returnObject.numClause = resultObject.numClause;
+        resultObject.params.forEach((k) => returnObject.params.push(k));
+        return resultObject.clause;
+      }).join(' AND ');
+
+      returnObject.clause.push(`NOT EXISTS (SELECT 1 FROM ${virtualTable} WHERE ${virtualTable}.${idOrForeingVirtual} = ${arg.table}.${idOrForeingPrincipal} AND ${string})`)
+    }
+    
+  });
+  returnObject.clause = returnObject.clause.join(` ${opeSeparador} `)
+
+  return returnObject;
+}
+
 //objeto que entrega una funcion que permite automatizar la clausula de un where, dependiendo que el valor del (campo: valor) sea un objeto, un valor primitivo o un null
 const WhereMetodos = {
   cond: (arg: {where: any, key: string, numClause: number, ope: string, nomRelationTable?: string}) => {
@@ -112,7 +209,19 @@ const CondicionalWhere = {
     let numClause = arg.placeholders || 1;
 
     //se define si la consulta es relacionada, es decir, se aplica el [nombredelatabla].[campo]
-    const consultaRelacionada = arg.consultaRelacionada ? arg.consultaRelacionada : keys.find(k => camposVirtuales.includes(k));
+    let consultaRelacionada = arg.consultaRelacionada ? arg.consultaRelacionada : keys.find(k => camposVirtuales.includes(k));
+
+    //si la busqueda no encontro un campo virtual se busca por los AND, OR y NOT
+    if(!consultaRelacionada) {
+      for(let ope of ["And", "Or", "Not"]){
+        //se busca si el where tiene uno de estos operadores
+        const search = keys.find(k => k == ope);
+        if(search){
+          consultaRelacionada = arg.where[ope].find(o => Object.keys(o).find(k => camposVirtuales.includes(k)))
+          if(consultaRelacionada) break;
+        }
+      }
+    } 
 
     let stringWhere:string[] = [];
     //se recorre cada key del where para sacar las clausulas
@@ -154,93 +263,32 @@ const CondicionalWhere = {
         // Para campos virtuales, asumimos que el where es un objeto con condiciones para la tabla relacionada
         const virtualTable = key;
         const virtualConditions = arg.where[key];
-        const virtualKeys = Object.keys(virtualConditions);
 
-        virtualKeys.forEach((vk, vIndex) => {
+        const resultObject = OperadoresRelacionales(virtualTable, arg, camposTablaPrincipal, numClause, 'AND', virtualConditions);
 
-          const valuesOperador = virtualConditions[vk];
+        //se asignan los datos recopilados de la operacion de los operadores relacionales
+        numClause = resultObject.numClause;
+        resultObject.params.forEach((k) => params.push(k));
+        stringWhere.push(resultObject.clause);
 
-          //se utilizan para las consultas que necesitan relacionar los ids con las claves foraneas, determinando primero cual tiene la clave primaria o el id
-          const idPrincipal = Object.keys(camposTablaPrincipal).find(k => camposTablaPrincipal[k] === `id`);
-          const foreingPrincipal = Object.keys(camposTablaPrincipal).find(k => camposTablaPrincipal[k] === `foreing:${virtualTable}`);
-          const idOrForeingPrincipal = foreingPrincipal ? foreingPrincipal : idPrincipal;
-
-          const tablaVirtual = arg.camposTable.find((t: any) => t.nameTabla === virtualTable);
-          const foreignVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `foreing:${arg.table}`);
-          const idVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `id`);
-          const idOrForeingVirtual = foreignVirtual ? foreignVirtual : idVirtual
-
-          if(vk === 'some'){
-
-            // Si el operador es 'some', significa que queremos que exista al menos un registro relacionado que cumpla la condición
-            const string = Object.keys(valuesOperador).map(op => { 
-              
-              const resultObject = WhereMetodos.cond({where: valuesOperador[op], key: op, numClause: numClause, ope: 'OR', nomRelationTable: virtualTable});
-              numClause = resultObject.numClause;
-              resultObject.params.forEach((k) => params.push(k)); //todos los parametros recogidos en el whereMetodos, se colocan en el params
-              return resultObject.clause;
-            }).join(' AND ');
-
-            stringWhere.push(`EXISTS (SELECT 1 FROM ${virtualTable} WHERE ${virtualTable}.${idOrForeingVirtual} = ${arg.table}.${idOrForeingPrincipal} AND ${string})`);
-          }
-
-          if(vk === 'every'){
-           
-            // Si el operador es 'every', significa que queremos que todos los registros relacionados cumplan la condición
-            const string = Object.keys(valuesOperador).map(op => {
-               const resultObject = WhereMetodos.cond({where:  valuesOperador[op], key: op, numClause: numClause, ope: 'AND', nomRelationTable: virtualTable});
-              numClause = resultObject.numClause;
-              resultObject.params.forEach((k) => params.push(k));
-              return resultObject.clause;
-            }).join(' AND ');
-
-            stringWhere.push(`NOT EXISTS (SELECT 1 FROM ${virtualTable} WHERE ${virtualTable}.${idOrForeingVirtual} = ${arg.table}.${idOrForeingPrincipal} AND NOT (${string}))`);
-          } 
-          if(vk === 'none'){
-            // Si el operador es 'none', significa que queremos que ningún registro relacionado cumpla la condición
-            const string = Object.keys(valuesOperador).map(op => {
-               const resultObject = WhereMetodos.cond({where: valuesOperador[op], key: op, numClause: numClause, ope: 'AND', nomRelationTable: virtualTable});
-              numClause = resultObject.numClause;
-              resultObject.params.forEach((k) => params.push(k));
-              return resultObject.clause;
-            }).join(' AND ');
-
-            stringWhere.push(`NOT EXISTS (SELECT 1 FROM ${virtualTable} WHERE ${virtualTable}.${idOrForeingVirtual} = ${arg.table}.${idOrForeingPrincipal} AND ${string})`);
-          }
-          
-          if(vk === 'is'){
-
-            const string = Object.keys(valuesOperador).map(op => {
-               const resultObject = WhereMetodos.cond({where:  valuesOperador[op], key: op, numClause: numClause, ope: 'AND', nomRelationTable: virtualTable});
-              numClause = resultObject.numClause;
-              resultObject.params.forEach((k) => params.push(k));
-              return resultObject.clause;
-            }).join(' AND ');
-            stringWhere.push(`EXISTS (SELECT 1 FROM ${virtualTable} WHERE ${virtualTable}.${idOrForeingVirtual} = ${arg.table}.${idOrForeingPrincipal} AND ${string})`);
-          }
-
-          if(vk === 'isNot'){
-            const string = Object.keys(valuesOperador).map(op => {
-               const resultObject = WhereMetodos.cond({where:  valuesOperador[op], key: op, numClause: numClause, ope: 'AND', nomRelationTable: virtualTable});
-              numClause = resultObject.numClause;
-              resultObject.params.forEach((k) => params.push(k));
-              return resultObject.clause;
-            }).join(' AND ');
-            stringWhere.push(`NOT EXISTS (SELECT 1 FROM ${virtualTable} WHERE ${virtualTable}.${idOrForeingVirtual} = ${arg.table}.${idOrForeingPrincipal} AND ${string})`);
-          }
-          
-        });
       }
       if(key === 'And'){
         // se recorre todas las condiciones del array
         const andClauses = arg.where.And.map((cond: any) => { 
 
           // se recorre cada valor de la condicion dentro de cada objeto del array
-          return Object.values(cond).map((o, index) => {
-            const resultObject = WhereMetodos.cond({where: o, key: Object.keys(cond)[index], numClause, ope: 'AND', nomRelationTable: consultaRelacionada ? arg.table : null});
+          return Object.values(cond).map((o:any, index) => {
+
+             //se comprueba que el key sea un campo virtual, si lo es, se activa la funcion para los operadores relacionales
+            const resultObject = camposVirtuales.includes(Object.keys(cond)[index]) ? 
+            OperadoresRelacionales(Object.keys(cond)[index], arg, camposTablaPrincipal, numClause, 'AND', o) 
+            :
+            WhereMetodos.cond({where: o, key: Object.keys(cond)[index], numClause, ope: 'AND', nomRelationTable: consultaRelacionada ? arg.table : null});
+           
             numClause = resultObject.numClause;
             resultObject.params.forEach((k) => params.push(k));
             return resultObject.clause;
+
           }).join(' AND ');
         }).join(' AND ');
 
@@ -251,10 +299,17 @@ const CondicionalWhere = {
         const andClauses = arg.where.Or.map((cond: any) => {
           // se recorre cada valor de la condicion dentro de cada objeto del array
           return Object.values(cond).map((o, index) => {
-            const resultObject = WhereMetodos.cond({where: o, key: Object.keys(cond)[index], numClause, ope: 'OR', nomRelationTable: consultaRelacionada ? arg.table : null});
+
+             //se comprueba que el key sea un campo virtual, si lo es, se activa la funcion para los operadores relacionales
+            const resultObject = camposVirtuales.includes(Object.keys(cond)[index]) ? 
+            OperadoresRelacionales(Object.keys(cond)[index], arg, camposTablaPrincipal, numClause, 'OR', o) 
+            :
+            WhereMetodos.cond({where: o, key: Object.keys(cond)[index], numClause, ope: 'OR', nomRelationTable: consultaRelacionada ? arg.table : null});
+            
             numClause = resultObject.numClause;
             resultObject.params.forEach((k) => params.push(k));
             return resultObject.clause;
+
           }).join(' OR ');
         }).join(' OR ');
        
@@ -267,10 +322,17 @@ const CondicionalWhere = {
 
           // se recorre cada valor de la condicion dentro de cada objeto del array
           return Object.values(cond).map((o, index) => {
-            const resultObject = WhereMetodos.cond({where: o, key: Object.keys(cond)[index], numClause, ope: 'AND', nomRelationTable: consultaRelacionada ? arg.table : null});
+
+            //se comprueba que el key sea un campo virtual, si lo es, se activa la funcion para los operadores relacionales
+            const resultObject = camposVirtuales.includes(Object.keys(cond)[index]) ? 
+            OperadoresRelacionales(Object.keys(cond)[index], arg, camposTablaPrincipal, numClause, 'AND', o) 
+            :
+            WhereMetodos.cond({where: o, key: Object.keys(cond)[index], numClause, ope: 'AND', nomRelationTable: consultaRelacionada ? arg.table : null});
+            
             numClause = resultObject.numClause;
             resultObject.params.forEach((k) => params.push(k));
             return resultObject.clause;
+
           }).join(' AND ');
         }).join(' AND ');
 

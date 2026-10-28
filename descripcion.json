@@ -44,7 +44,7 @@
         "id_user": ["number", {"foreing": "Users"}],
         "id_blog": ["number", "not null", {"foreing": "Blogs"}],
         "user_ip": ["string"],
-        "fecha_creacion": ["string", "not null"],
+        "fecha": ["string", "not null"],
         "users": ["Users"],
         "blog": ["Blogs"]
 
@@ -59,6 +59,7 @@
         "comment": ["string", "not null"],
         "fecha_creacion": ["string", "not null"],
         "eliminado": ["boolean"],
+        "likes": ["number"],
         "blogs": ["Blogs"],
         "users": ["Users"]
     },
