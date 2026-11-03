@@ -27,6 +27,13 @@ export function createMiniPrismaProxy(arg?: object[]): any {
           }
         }     
       }
+
+      if(modelName === 'queryRaw'){
+        return async function (consulta:string, params:any[]){
+          const result = await pool.query(consulta, params);
+          return result.rows;
+        }
+      }
       
       // Retornamos un segundo Proxy para los métodos (ej: intercepta 'findMany' o 'create')
       return new Proxy({}, {
@@ -46,7 +53,8 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               //si hay un select, se filtran los campos virtuales y se colocan en el select
               if(args?.select){
                 const camposTablaPrincipal:any = arg?.find((t: any) => t.nameTabla === table);
-                selectedFields = Object.keys(args.select).filter(k => camposTablaPrincipal[k] != 'virtual').join(', ');
+                selectedFields = Object.keys(args.select).filter(k => camposTablaPrincipal[k] != 'virtual' 
+                  && k != '_count').join(', ');
 
               }
 
@@ -75,6 +83,10 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                 let whereClausesRelacionada: string | null = null;
                 let paramsRelacionada: any[] = [args.where[keys[0]]]; //para la consulta cuando se saca los registros relacionados de la tabla virtual, se inicializa con el valor del parametro del where principal
 
+                //se consigue la id principal
+                const tablaPrincipal = arg?.find((t: any) => t.nameTabla === table);
+                const idPrincipal = Object.keys(tablaPrincipal).find(k => tablaPrincipal[k] ===  'id'); 
+
                 //se determina si el valor a aplicar es el include o el select, para asi poder iterar sobre los campos virtuales
                 const argsIncludeOrSelect = args.include ? args.include : args.select;
 
@@ -83,7 +95,7 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                 const camposVirtuales = Object.keys(argsIncludeOrSelect).filter(k => camposTablaPrincipal[k] === 'virtual');
 
                 //se determina si se itera los valores del include o los campos virtuales del select
-                const iterar = args.include ? Object.keys(args.include) : camposVirtuales;
+                const iterar = args.include ? Object.keys(args.include).filter(k => k != '_count') : camposVirtuales;
 
                 for(const virtual of iterar){
   
@@ -96,8 +108,18 @@ export function createMiniPrismaProxy(arg?: object[]): any {
 
                     //si tiene un where anidado
                     if(argsIncludeOrSelect[virtual].where){
-                      whereClausesRelacionada = CondicionalWhere.cond({where: argsIncludeOrSelect[virtual].where, camposTable: arg, table: virtual, consultaRelacionada: true, placeholders: 2}).where;
-                      paramsRelacionada = [...paramsRelacionada , ...CondicionalWhere.cond({where: argsIncludeOrSelect[virtual].where, camposTable: arg, table: virtual, consultaRelacionada: true, placeholders: 2}).params];
+                      const resultWhereClauses = CondicionalWhere.cond(
+                        {
+                          where: argsIncludeOrSelect[virtual].where, 
+                          camposTable: arg, 
+                          table: virtual, 
+                          consultaRelacionada: true,
+                          placeholders: 2
+                        }
+                      )
+
+                      whereClausesRelacionada = resultWhereClauses.where;
+                      paramsRelacionada = [...paramsRelacionada , ...resultWhereClauses.params];
                       
                     }
 
@@ -111,16 +133,18 @@ export function createMiniPrismaProxy(arg?: object[]): any {
 
                   //se busca el id y la clave foranea de la relacion, se determina primero si una de la dos tablas tiene la clave foranea, si la tiene se coloca en la variable idOrForeing
                   
-                  const tablaPrincipal = arg?.find((t: any) => t.nameTabla === table);
-
-                  const idPrincipal = Object.keys(tablaPrincipal).find(k => tablaPrincipal[k] ===  'id'); 
-                  const foreingPrincipal = Object.keys(tablaPrincipal).find(k => tablaPrincipal[k] ===  `foreing:${virtual}`)  
+                  const foreingPrincipal = Object.keys(tablaPrincipal).find(
+                    k => tablaPrincipal[k] ===  `foreing:${virtual}`)  
                   const idOrForeingPrincipal = foreingPrincipal ? foreingPrincipal : idPrincipal;
                   
                   const tablaVirtual = arg?.find((t: any) => t.nameTabla === virtual);
 
-                  const idVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] ===  'id')  
-                  const foreingVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `foreing:${table}`)  
+                  const idVirtual = Object.keys(tablaVirtual).find(
+                    k => tablaVirtual[k] ===  'id')  
+
+                  const foreingVirtual = Object.keys(tablaVirtual).find(
+                    k => tablaVirtual[k] === `foreing:${table}`)  
+
                   const idOrForeingVirtual = foreingVirtual ? foreingVirtual : idVirtual;
                   
                   let consulta = `SELECT ${virtualFieldsRelacionada} FROM ${virtual}
@@ -130,6 +154,58 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                   const relatedData = await pool.query(consulta, paramsRelacionada);
                   result[virtual] = relatedData.rows; // Agregamos los datos relacionados al resultado final     
                 }
+
+                //se realiza la consulta para el count
+                if(argsIncludeOrSelect._count){
+                  let paramsRelacionada: any[] = [args.where[keys[0]]];
+
+                  const keysCount = Object.keys(argsIncludeOrSelect._count.select);
+
+                  const selectCounts:any[] = [];
+
+                  for(let key of keysCount){
+                    let whereClausesRelacionada: string | null = null;
+
+                    //si tiene un where anidado
+                    if(argsIncludeOrSelect._count.select[key].where){
+                      const resultWhereClauses = CondicionalWhere.cond(
+                        {
+                          where: argsIncludeOrSelect._count.select[key].where, 
+                          camposTable: arg, 
+                          table: key, 
+                          consultaRelacionada: true
+                        }
+                      )
+                      whereClausesRelacionada = resultWhereClauses.where;
+                      
+                      paramsRelacionada = [...resultWhereClauses.params,...paramsRelacionada];
+                    }
+
+                    //se busca el id y la clave foranea de la relacion, se determina primero si una de la dos tablas tiene la clave foranea, si la tiene se coloca en la variable idOrForeing
+                    const foreingPrincipal = Object.keys(tablaPrincipal).find(k => tablaPrincipal[k] ===  `foreing:${key}`)  
+                    const idOrForeingPrincipal = foreingPrincipal ? foreingPrincipal : idPrincipal;
+                    
+                    const tablaVirtual = arg?.find((t: any) => t.nameTabla === key);
+
+                    const idVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] ===  'id')  
+                    const foreingVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `foreing:${table}`)  
+                    const idOrForeingVirtual = foreingVirtual ? foreingVirtual : idVirtual;
+
+                    const select = `(SELECT COUNT(*) FROM ${key} WHERE 
+                    ${key}.${idOrForeingVirtual} = ${table}.${idOrForeingPrincipal} 
+                    ${whereClausesRelacionada ? ' AND '+whereClausesRelacionada : ''}) AS ${key}`;
+
+                    selectCounts.push(select);
+                  }
+
+                  const consulta = `SELECT ${selectCounts.join(" , ")} FROM ${table}
+                  WHERE ${table}.${keys[0]} = $${paramsRelacionada.length}`
+
+                  const resultCount = await pool.query(consulta, paramsRelacionada)
+                  result["_count"] = resultCount.rows[0];
+
+                }
+
               }
 
               return result; // Retorno simulado
@@ -158,11 +234,12 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                   k => camposTablaPrincipal[k] === 'virtual');
 
                 const ordenBys:string[] = [];
-                
-                ordenBy += 'ORDER BY '
 
                 //se determina si hay un campo virtual en el orderBy, para asi hacer la union con la tabla virtual
                 const hayRelacion = Object.keys(args.ordenBy).some(key => camposVirtuales.includes(key)); 
+                
+                //variable que guarda el groupBy si hay un count en un campo virtual
+                let groupBy; 
 
                 Object.keys(args.ordenBy).forEach(key => {
 
@@ -175,17 +252,28 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                     const virtualTable = key;
                     const tablaVirtual = arg?.find((t: any) => t.nameTabla === virtualTable);
                     const idVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `id`)
-                    const foreignVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `foreign:${table}`);
+                    const foreignVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `foreing:${table}`);
                     const idOrForeingVirtual = foreignVirtual ? foreignVirtual : idVirtual
 
                     const idPrincipal = Object.keys(camposTablaPrincipal).find(k => camposTablaPrincipal[k] === `id`);
-                    const foreingPrincipal = Object.keys(camposTablaPrincipal).find(k => camposTablaPrincipal[k] === `foreign:${virtualTable}`)
+                    const foreingPrincipal = Object.keys(camposTablaPrincipal).find(k => camposTablaPrincipal[k] === `foreing:${virtualTable}`)
                     const idOrForeingPrincipal = foreingPrincipal ? foreingPrincipal : idPrincipal
 
                     //se añade la union al string de uniones
                     stringRelation.push(`LEFT JOIN ${virtualTable} ON ${virtualTable}.${idOrForeingVirtual} = ${table}.${idOrForeingPrincipal}`) 
                     
-                    ordenBys.push(`${key}.${Object.keys(objectCampo)[0]} ${Object.values(objectCampo)[0]}`);
+                    //se añade agrupa el group by
+                    groupBy = `GROUP BY ${table}.${idPrincipal}`
+
+                    for(const k of Object.keys(objectCampo)){
+                      if(k == "_count"){
+                        ordenBys.push(`COUNT(${key}.${idVirtual}) ${objectCampo[k]}`);
+                        continue
+                      }
+                      const funcion = objectCampo[k] === 'asc' ? 'MIN' : 'MAX';
+                      ordenBys.push(`${funcion}(${key}.${k}) ${objectCampo[k]}`);
+                    }
+                    
                   }
 
                   else
@@ -193,22 +281,31 @@ export function createMiniPrismaProxy(arg?: object[]): any {
 
                 })
 
-                ordenBy += ordenBys.join(' , ');
+                ordenBy = `${groupBy ? groupBy : ''} ORDER BY ${ordenBys.join(' , ')}`;
                 
               }
 
               //*** se define las condiciones del where */
               if(args?.where){
+                const resultWhereClauses = CondicionalWhere.cond(
+                  {
+                    where: args?.where, 
+                    camposTable: arg, 
+                    table: table, 
+                    consultaRelacionada: Boolean(stringRelation.length)
+                  }
+                )
 
-                stringDelWhere = CondicionalWhere.cond({where: args?.where, camposTable: arg, table: table, consultaRelacionada: Boolean(stringRelation.length)}).where;
-                params = CondicionalWhere.cond({where: args?.where, camposTable: arg, table: table, consultaRelacionada: Boolean(stringRelation.length)}).params;
-                relacionEnWhere = CondicionalWhere.cond({where: args?.where, camposTable: arg, table: table, consultaRelacionada: Boolean(stringRelation.length)}).relacionEnWhere;
+                stringDelWhere = resultWhereClauses.where;
+                params = resultWhereClauses.params;
+                relacionEnWhere = resultWhereClauses.relacionEnWhere;
               }
 
               //*** se define los campos seleccionados */
               if(args?.select){
                 const camposTablaPrincipal = arg?.find((t: any) => t.nameTabla === table);
-                let camposFiltrados = Object.keys(args.select).filter(k => camposTablaPrincipal[k] != 'virtual' && k != 'nameTabla');
+                let camposFiltrados = Object.keys(args.select).filter(
+                  k => camposTablaPrincipal[k] != 'virtual' && k != 'nameTabla' && k != '_count');
 
                 //si hay relaciones, se coloca el nombre de la tabla y el .
                 selectedFields = (relacionEnWhere || stringRelation.length) ? camposFiltrados.map(k => `${table}.${k}`).join(', ') : camposFiltrados.join(', '); 
@@ -222,7 +319,7 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               }
 
               //se arma la consulta sql con los select y el where definidos (si es que tiene)
-              sql = `SELECT ${selectedFields ? selectedFields : '*'} FROM ${table} ${stringRelation.length ? stringRelation.join(" ") : ''} ${stringDelWhere ? 'WHERE ' + stringDelWhere: ''} ${ordenBy}`;
+              sql = `SELECT ${selectedFields ? selectedFields : `${table}.*`} FROM ${table} ${stringRelation.length ? stringRelation.join(" ") : ''} ${stringDelWhere ? 'WHERE ' + stringDelWhere: ''} ${ordenBy}`;
 
               if(args?.take){
                 sql += ` LIMIT ${args.take}`
@@ -238,28 +335,53 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               let result = consulta.rows.length ? consulta.rows : [];
             
               if((args?.include || args?.select) && result){
-
+                let identificadores: any[] = [];
                 const argsIncludeOrSelect = args.include ? args.include : args.select;
 
                 //sacamos los campos virtuales del args.include o args.select
                 const camposTablaPrincipal = arg?.find((t: any) => t.nameTabla === table);
-                const camposVirtuales = Object.keys(argsIncludeOrSelect).filter(k => camposTablaPrincipal[k] === 'virtual');
+
+                const camposVirtuales = Object.keys(argsIncludeOrSelect).filter(
+                  k => camposTablaPrincipal[k] === 'virtual'
+                );
  
                 //se determina si se itera los valores del include o los campos virtuales del select
                 const iterar = args.include ? Object.keys(args.include) : camposVirtuales;
-                
+                   
+                //definir el id principal
+                const tablaPrincipal = arg?.find((t: any) => t.nameTabla === table);
+                const idPrincipal = Object.keys(tablaPrincipal).find(
+                  k => tablaPrincipal[k] ===  'id'
+                );  
+
+                /**se saca los identificadores de cada uno de los registros de la consulta, 
+                 * para poder colocar sus relaciones correspondientes */
+
+                //primero se determina si la consulta por si misma tiene los identificadores
+                if(args?.select?.[idPrincipal] || !args?.select)
+                  result.forEach(k => identificadores.push(k[idPrincipal]));
+
+                //si no los tiene, se hace una consulta para sacarlos
+                else{
+                  const consulta = `SELECT ${(relacionEnWhere || stringRelation.length) ? 
+                    table + '.' : ''}${idPrincipal} FROM ${table} 
+                    ${stringRelation.length ? stringRelation.join(" ") : ''} 
+                  ${stringDelWhere ? 'WHERE ' + stringDelWhere : ''} ${ordenBy}`  
+
+                  //aqui se almacena la consulta
+                  const resultConsulta = await pool.query(consulta, params); 
+                  resultConsulta.rows.forEach(k => identificadores.push(k[idPrincipal]));
+                } 
+
                 for(const virtual of iterar){
 
                   //se definen las variables fundamentales para la ejecucion
                   let virtualFields: string | null = null;
                   let whereClauses: string | null = null;
                   let paramsSubConsulta: any[] = [];
-                  let identificadores: any[] = [];
 
-                  //arreglar esto porque se tiene que sacar el id de la principal para la subconsulta, pero no es seguro porque puede ser un foreing
-                  const tablaPrincipal = arg?.find((t: any) => t.nameTabla === table);
 
-                  const idPrincipal = Object.keys(tablaPrincipal).find(k => tablaPrincipal[k] ===  'id');  
+                  //definimos los foreing o los id principales de las tablas virtuales y principales
                   const foreingKey = Object.keys(tablaPrincipal).find(k => tablaPrincipal[k] ===  `foreing:${virtual}`) 
                   const foreinOrIdPrincipal = foreingKey ? foreingKey : idPrincipal;
                   
@@ -268,24 +390,6 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                   const idVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] ===  'id');
                   const foreingVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `foreing:${table}`)  
                   const foreingOrIdVirtual = foreingVirtual ? foreingVirtual : idVirtual
-
-
-                  /**se saca los identificadores de cada uno de los registros de la consulta, para poder colocar sus relaciones correspondientes */
-
-                  //primero se determina si la consulta por si misma tiene los identificadores
-                  if(args?.select?.[idPrincipal])
-                    result.forEach(k => identificadores.push(k[idPrincipal]));
-
-                  //si no los tiene, se hace una consulta para sacarlos
-                  else{
-                    const consulta = `SELECT ${(relacionEnWhere || stringRelation.length) ? table + '.' : ''}${idPrincipal} FROM ${table}
-                    ${stringDelWhere ? 'WHERE ' + stringDelWhere : ''}`  
-
-                    //aqui se almacena la consulta
-                    const resultConsulta = await pool.query(consulta, params); 
-
-                    resultConsulta.rows.forEach(k => identificadores.push(k[idPrincipal]));
-                  } 
                    
 
                   if(argsIncludeOrSelect[virtual] != true){
@@ -297,8 +401,16 @@ export function createMiniPrismaProxy(arg?: object[]): any {
 
                     //si tiene un where anidado
                     if(argsIncludeOrSelect[virtual].where){
-                      whereClauses = CondicionalWhere.cond({where: argsIncludeOrSelect[virtual].where, camposTable: arg, table: virtual, consultaRelacionada: true}).where;
-                      paramsSubConsulta = CondicionalWhere.cond({where: argsIncludeOrSelect[virtual].where, camposTable: arg, table: virtual, consultaRelacionada: true}).params
+                      const resultWhereClauses = CondicionalWhere.cond(
+                        {
+                          where: argsIncludeOrSelect[virtual].where, 
+                          camposTable: arg, 
+                          table: virtual, 
+                          consultaRelacionada: true
+                        }
+                      )
+                      whereClauses = resultWhereClauses.where;
+                      paramsSubConsulta = resultWhereClauses.params
                       
                     }
                   }
@@ -316,14 +428,78 @@ export function createMiniPrismaProxy(arg?: object[]): any {
                     WHERE ${whereClauses ? whereClauses + ' AND ' : ''} ${table}.${idPrincipal} = $${paramsSubConsulta.length + 1} `
                     
                     const consult = await pool.query(consulta, [...paramsSubConsulta, identificadores[index]]); 
-                    
+
                     const resultConsult = consult.rows;
  
                     k[virtual] = resultConsult
+                    
                     result[index] = k; //se actualiza el registro del array result con el nuevo atributo  
 
                   };        
                 }
+
+                //se realiza la consulta para el count
+                if(argsIncludeOrSelect._count){
+                  let paramsSubConsulta: any[] = [];
+
+                  const keysCount = Object.keys(argsIncludeOrSelect._count.select);
+
+                  const selectCounts:any[] = [];
+
+                  for(let key of keysCount){
+                    let whereClausesRelacionada: string | null = null;
+                    
+
+                    //si tiene un where anidado
+                    if(argsIncludeOrSelect._count.select[key].where){
+                      const resultWhereClauses = CondicionalWhere.cond(
+                        {
+                          where: argsIncludeOrSelect._count.select[key].where, 
+                          camposTable: arg, 
+                          table: key, 
+                          consultaRelacionada: true
+                        }
+                      )
+
+                      whereClausesRelacionada = resultWhereClauses.where
+                      paramsSubConsulta = [...paramsSubConsulta, ...resultWhereClauses.params]
+                    }
+
+                    //se busca el id y la clave foranea de la relacion, se determina primero si una de la dos tablas tiene la clave foranea, si la tiene se coloca en la variable idOrForeing
+                  
+                    const foreingPrincipal = Object.keys(tablaPrincipal).find(k => tablaPrincipal[k] ===  `foreing:${key}`)  
+                    const idOrForeingPrincipal = foreingPrincipal ? foreingPrincipal : idPrincipal;
+                    
+                    const tablaVirtual = arg?.find((t: any) => t.nameTabla === key);
+
+                    const idVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] ===  'id')  
+                    const foreingVirtual = Object.keys(tablaVirtual).find(k => tablaVirtual[k] === `foreing:${table}`)  
+                    const idOrForeingVirtual = foreingVirtual ? foreingVirtual : idVirtual;
+                  
+                    const select = `(SELECT COUNT(*) FROM ${key} WHERE 
+                    ${key}.${idOrForeingVirtual} = ${table}.${idOrForeingPrincipal}
+                    ${whereClausesRelacionada ? ' AND '+whereClausesRelacionada : ''}) AS ${key}`;
+
+                    selectCounts.push(select);
+
+                  }
+
+                   //se agrega el nuevo atributo a todos los registros resultantes de la consulta principal
+                  for(const [index, k] of result.entries()){
+ 
+                    const consulta = `SELECT ${selectCounts.join(" , ")} FROM ${table}
+                    WHERE ${table}.${idPrincipal} = $${paramsSubConsulta.length + 1}`
+
+                    const consult = await pool.query(consulta, [...paramsSubConsulta, identificadores[index]]); 
+ 
+                    k["_count"] = consult.rows[0]
+
+                    result[index] = k; //se actualiza el registro del array result con el nuevo atributo  
+
+                  };
+
+                }
+                
               }
  
               return result; // Retorno simulado
@@ -495,8 +671,16 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               let params:any[] = [];
  
               if(args?.where && arg){
-                stringDelWhere = CondicionalWhere.cond({where: args?.where, camposTable: arg, table: table}).where;
-                params = CondicionalWhere.cond({where: args?.where, camposTable: arg, table: table}).params;
+                const resultWhereClauses = CondicionalWhere.cond(
+                  {
+                    where: args?.where, 
+                    camposTable: arg, 
+                    table: table
+                  }
+                )
+
+                stringDelWhere = resultWhereClauses.where;
+                params = resultWhereClauses.params;
                 sql += ` WHERE ${stringDelWhere}`;
               } 
 
@@ -575,8 +759,16 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               let stringDelWhere:string = '';
               
               if(args.where && arg){
-                stringDelWhere = CondicionalWhere.cond({where: args.where, camposTable: arg, table: table, placeholders: placeholder + 1}).where;
-                params.push(...CondicionalWhere.cond({where: args.where, camposTable: arg, table: table, placeholders: placeholder}).params);
+                const resultWhereClauses = CondicionalWhere.cond(
+                  {
+                    where: args?.where, 
+                    camposTable: arg, 
+                    table: table,
+                    placeholders: placeholder + 1
+                  }
+                )
+                stringDelWhere = resultWhereClauses.where;
+                params.push(...resultWhereClauses.params);
                 sql += ` WHERE ${stringDelWhere}`;
               } 
 
@@ -608,7 +800,7 @@ export function createMiniPrismaProxy(arg?: object[]): any {
               throw new Error(`Método ${methodName} no implementado.`);
             }
           };
-        } 
+        }  
       });
     }
   });

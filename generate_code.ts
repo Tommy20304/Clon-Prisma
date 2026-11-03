@@ -85,19 +85,37 @@ function parte2(){
 
     camposVirtuales = valoresForaneos.length ? [...camposVirtuales, ...valoresForaneos]: camposVirtuales;
 
-    return tipo == 'ope' ? 
-    `| AlMenosUno<{ select?: AlMenosUno<Omit<${nombreVirtual}Operations ${camposVirtuales.length && ', '} ${camposVirtuales.map(k=>`'${k}'`).join(' | ')}>>, 
-    where?: WhereMany<${nombreVirtual}>}>;\n` 
-    :
-    `{ create: AlMenosUno<Omit<Create${nombreVirtual}, ${camposVirtuales.map(k=>`'${k}'`).join(' | ')}>>`
+    if(tipo == 'ope')
+      return `| AlMenosUno<{ select?: AlMenosUno<Omit<${nombreVirtual}Operations ${camposVirtuales.length && ', '} ${camposVirtuales.map(k=>`'${k}'`).join(' | ')}>>, 
+      where?: WhereMany<${nombreVirtual}>}>;\n` 
+    else if (tipo == 'ope_count')
+      return `| AlMenosUno<{ where?: WhereMany<${nombreVirtual}>}>;\n` 
+    else 
+     return `{ create: AlMenosUno<Omit<Create${nombreVirtual}, ${camposVirtuales.map(k=>`'${k}'`).join(' | ')}>>` 
+
   } 
 
   for (const [modelName, fields] of Object.entries(descripcion)) {
     code += `export interface ${modelName}Operations {\n`;
     for (const [field, array] of Object.entries(fields)) {
       const claveVirtual = Object.keys(descripcion).find((k:any) => k.toLowerCase() == field)
-      code += `  ${field}?: true${claveVirtual ? tipoClaveVirtual(claveVirtual, 'ope') : ';\n'}`;
+      code += `  ${field}?: true ${claveVirtual ? tipoClaveVirtual(claveVirtual, 'ope') : ';\n'}`;
     }
+
+    //se coloca el valor _count
+
+    code += `  _count: { 
+      select: {\n `
+
+    for (const [field, array] of Object.entries(fields)) {
+      const claveVirtual = Object.keys(descripcion).find((k:any) => k.toLowerCase() == field)
+
+      if(claveVirtual){
+        code += `       ${field}?: true ${tipoClaveVirtual(claveVirtual, 'ope_count')}`;
+      }
+    }
+
+    code += `    }\n  }\n`
 
     code += `}\n\n`;
   
@@ -146,7 +164,9 @@ type AlMenosUno<T> = {
 }[keyof T];
 
 type OrdenBy<T> = {
-  [K in keyof T]?: 'asc' | 'desc'
+  [K in keyof T]?: 'asc' | 'desc';
+} & {
+  _count?: 'asc' | 'desc';
 };
 
 //tipo generativo para los increment y decrement de los update
@@ -299,6 +319,10 @@ function parte5(){
   /*se coloca el modelo para las transacciones*/
   code += `transaction: <T extends readonly (() => Promise<any>)[]>(
   args: [...T]) => Promise<{ [K in keyof T]: Awaited<ReturnType<T[K]>> }>`; 
+
+  code += `\n\n`;
+
+  code += `queryRaw: (consulta:string, params:any[]) => Promise<any[]>`
 
   code += '\n\n}\n'
 }

@@ -61,6 +61,17 @@
         "eliminado": ["boolean"],
         "likes": ["number"],
         "blogs": ["Blogs"],
+        "users": ["Users"],
+        "likes_comments": ["Likes_comments[]"]
+    },
+
+    "Likes_comments": {
+        "id_like": ["number", "id", "auto-increment"],
+        "id_comment": ["number", "not null", {"foreing": "Blog_comments"}],
+        "user_id": ["number", "not null", {"foreing": "Users"}],
+        "fecha_creacion": ["string", "not null"],
+        "deshabilitado": ["boolean"],
+        "blog_comments": ["Blog_comments"],
         "users": ["Users"]
     },
 
