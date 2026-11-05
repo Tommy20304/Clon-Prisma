@@ -15,7 +15,7 @@
 
     "Tags": {
         "id_tag": ["number", "id", "auto-increment"],
-        "nombre": ["string", "not null"],
+        "nombre": ["string", "not null", "unique"],
         "fecha_creacion": ["string", "not null"],
         "blogs": ["Blogs[]"]
     },

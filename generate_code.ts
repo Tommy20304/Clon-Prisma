@@ -299,13 +299,13 @@ function parte5(){
     take?: number,
     skip?: number`
 
-    code += `}) => Promise<${modelName}[] | null>;
+    code += `}) => Promise<(${modelName} & {_count: {${returnVirtualValues(modelName).map(k=>`${k}:number`).join(' , ')}}})[] | null>;
     findUnique: (args: {
     where: AlMenosUno<WhereUnique${modelName}>,
     include?: AlMenosUno<Omit<${modelName}Operations, ${returnNotVirtualValues(modelName).map(k=>`'${k}'`).join(' | ')}>>,
     select?: AlMenosUno<${modelName}Operations>,
     omit?: AlMenosUno<${returnVirtualValues(modelName).length ? `Omit<${modelName}Operations, ${returnVirtualValues(modelName).map(k=>`'${k}'`).join(' | ')}>`:`${modelName}Operations`}> 
-  }) => Promise<${modelName} | null>;\n`
+  }) => Promise<(${modelName} & {_count: {${returnVirtualValues(modelName).map(k=>`${k}:number`).join(' , ')}}}) | null>;\n`
  
     code += `create: (args: { data: ${todosSonOpcionales(modelName) ? `AlMenosUno<Create${modelName}>`:`Create${modelName}`}}) => Promise<${modelName}>;
   createMany: (args: { data: ${todosSonOpcionales(modelName) ? 'AlMenosUno<':''}${returnVirtualValues(modelName).length ? `Omit<Create${modelName}, ${returnVirtualValues(modelName).map(k=>`'${k}'`).join(' | ')}>${todosSonOpcionales(modelName) ? '>':''}[]`: `Create${modelName}${todosSonOpcionales(modelName) ? '>':''}[]`}, skipDuplicates?: boolean}) => Promise<{ count: number }>
